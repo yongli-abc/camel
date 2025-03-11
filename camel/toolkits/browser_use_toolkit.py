@@ -15,12 +15,12 @@ async def run_agent():
 
         # Run the agent
         history = await agent.run()
-        print(history.urls())
-        print(history.screenshots())
-        print(history.action_names())
-        print(history.extracted_content())
-        print(history.errors())
-        print(history.model_actions())
+        print(history.urls())  # ['about:blank', 'https://www.google.com/search?q=date%20today&udm=14&sei=mAzQZ_qmLLOa0PEP6u_H6Q0']
+        print(history.screenshots())  # ......
+        print(history.action_names())  # ['search_google', 'done']
+        print(history.extracted_content())  # ['🔍  Searched for "date today" in Google', "Successfully searched Google for today's date. The date information is visible in the search results: March 11, 2025."]
+        print(history.errors())  # [None, None]
+        print(history.model_actions())  # [{'search_google': {'query': 'date today'}, 'interacted_element': None}, {'done': {'text': "Successfully searched Google for today's date. The date information is visible in the search results: March 11, 2025.", 'success': True}, 'interacted_element': None}]
 
     await browser.close()
 
