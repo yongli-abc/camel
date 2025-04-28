@@ -465,7 +465,7 @@ class BaseBrowser:
         # Set the cache directory
         self.cache_dir = "tmp/" if cache_dir is None else cache_dir
         # Set the user_data_dir directory
-        self.user_data_dir = r"camel_user_data_dir/" if (
+        self.user_data_dir = r"user_data_dir/" if (
                 user_data_dir is None) else (
             user_data_dir)
 
@@ -507,8 +507,8 @@ class BaseBrowser:
             """Object.defineProperty(navigator, 'webdriver', {get: () => 
             undefined})"""
         )
-        print("user_data_dir", self.user_data_dir)
-        print("cache", self.cache_dir)
+        logger.info("user_data_dir Location: ", self.user_data_dir)
+        logger.info("cache_dir Location:", self.cache_dir)
 
 
     def clean_cache(self) -> None:
