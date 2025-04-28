@@ -40,6 +40,8 @@ from PIL import Image, ImageDraw, ImageFont
 
 if TYPE_CHECKING:
     from camel.agents import ChatAgent
+from playwright.sync_api import BrowserContext
+
 from camel.logger import get_logger
 from camel.messages import BaseMessage
 from camel.models import BaseModelBackend, ModelFactory
@@ -428,11 +430,11 @@ def _get_random_color(identifier: int) -> Tuple[int, int, int, int]:
 
 class BaseBrowser:
     def __init__(
-            self,
-            headless=True,
-            cache_dir: Optional[str] = None,
-            user_data_dir: Optional[str] = None,
-            channel: Literal["chrome", "msedge", "chromium"] = "chromium",
+        self,
+        headless=True,
+        cache_dir: Optional[str] = None,
+        user_data_dir: Optional[str] = None,
+        channel: Literal["chrome", "msedge", "chromium"] = "chromium",
     ):
         r"""Initialize the WebBrowser instance.
 
@@ -448,6 +450,8 @@ class BaseBrowser:
         Returns:
             None
         """
+        self.page = None
+        self.context = None
         from playwright.sync_api import (
             sync_playwright,
         )
@@ -459,15 +463,15 @@ class BaseBrowser:
         # behavior)
         self._playwright_context = sync_playwright()
         self.playwright = self._playwright_context.__enter__()
-        self.browser=None
+        self.browser: Optional[BrowserContext] = None
         self.page_history: list = []  # stores the history of visited pages
 
         # Set the cache directory
         self.cache_dir = "tmp/" if cache_dir is None else cache_dir
         # Set the user_data_dir directory
-        self.user_data_dir = r"user_data_dir/" if (
-                user_data_dir is None) else (
-            user_data_dir)
+        self.user_data_dir = (
+            r"user_data_dir/" if (user_data_dir is None) else (user_data_dir)
+        )
 
         os.makedirs(self.cache_dir, exist_ok=True)
 
@@ -500,7 +504,7 @@ class BaseBrowser:
                 ],
             )
             self.context = self.browser
-
+        assert self.context is not None
         self.page = self.context.new_page()
         # Inject anti-bot JavaScript to hide 'navigator.webdriver'
         self.page.add_init_script(
@@ -509,7 +513,6 @@ class BaseBrowser:
         )
         logger.info("user_data_dir Location: ", self.user_data_dir)
         logger.info("cache_dir Location:", self.cache_dir)
-
 
     def clean_cache(self) -> None:
         r"""Delete the cache directory and its contents."""
@@ -937,6 +940,7 @@ class BaseBrowser:
     def close(self):
         if self.page and not self.page.is_closed():
             self.page.close()
+
     # ruff: noqa: E501
     def show_interactive_elements(self):
         r"""Show simple interactive elements on the current page."""
@@ -1010,15 +1014,15 @@ class BrowserToolkit(BaseToolkit):
     """
 
     def __init__(
-            self,
-            headless: bool = False,
-            cache_dir: Optional[str] = None,
-            user_data_dir: Optional[str] = None,
-            channel: Literal["chrome", "msedge", "chromium"] = "chromium",
-            history_window: int = 5,
-            web_agent_model: Optional[BaseModelBackend] = None,
-            planning_agent_model: Optional[BaseModelBackend] = None,
-            output_language: str = "en",
+        self,
+        headless: bool = False,
+        cache_dir: Optional[str] = None,
+        user_data_dir: Optional[str] = None,
+        channel: Literal["chrome", "msedge", "chromium"] = "chromium",
+        history_window: int = 5,
+        web_agent_model: Optional[BaseModelBackend] = None,
+        planning_agent_model: Optional[BaseModelBackend] = None,
+        output_language: str = "en",
     ):
         r"""Initialize the BrowserToolkit instance.
 
@@ -1042,8 +1046,10 @@ class BrowserToolkit(BaseToolkit):
         """
 
         self.browser = BaseBrowser(
-            headless=headless, cache_dir=cache_dir,
-            user_data_dir=user_data_dir, channel=channel
+            headless=headless,
+            cache_dir=cache_dir,
+            user_data_dir=user_data_dir,
+            channel=channel,
         )
 
         self.history_window = history_window
