@@ -428,16 +428,19 @@ def _get_random_color(identifier: int) -> Tuple[int, int, int, int]:
 
 class BaseBrowser:
     def __init__(
-        self,
-        headless=True,
-        cache_dir: Optional[str] = None,
-        channel: Literal["chrome", "msedge", "chromium"] = "chromium",
+            self,
+            headless=True,
+            cache_dir: Optional[str] = None,
+            user_data_dir: Optional[str] = None,
+            channel: Literal["chrome", "msedge", "chromium"] = "chromium",
     ):
         r"""Initialize the WebBrowser instance.
 
         Args:
             headless (bool): Whether to run the browser in headless mode.
             cache_dir (Union[str, None]): The directory to store cache files.
+            user_data_dir (Union[str, None]): The directory to store account
+            info.
             channel (Literal["chrome", "msedge", "chromium"]): The browser
                 channel to use. Must be one of "chrome", "msedge", or
                 "chromium".
@@ -452,12 +455,20 @@ class BaseBrowser:
         self.history: list = []
         self.headless = headless
         self.channel = channel
-        self._ensure_browser_installed()
-        self.playwright = sync_playwright().start()
+        # manually manage playwright context (simulate 'with'
+        # behavior)
+        self._playwright_context = sync_playwright()
+        self.playwright = self._playwright_context.__enter__()
+        self.browser=None
         self.page_history: list = []  # stores the history of visited pages
 
         # Set the cache directory
         self.cache_dir = "tmp/" if cache_dir is None else cache_dir
+        # Set the user_data_dir directory
+        self.user_data_dir = r"camel_user_data_dir/" if (
+                user_data_dir is None) else (
+            user_data_dir)
+
         os.makedirs(self.cache_dir, exist_ok=True)
 
         # Load the page script
@@ -474,15 +485,31 @@ class BaseBrowser:
             )
 
     def init(self) -> None:
-        r"""Initialize the browser."""
-        # Launch the browser, if headless is False, the browser will display
-        self.browser = self.playwright.chromium.launch(
-            headless=self.headless, channel=self.channel
-        )
-        # Create a new context
-        self.context = self.browser.new_context(accept_downloads=True)
-        # Create a new page
+        r"""Initialize and launch the browser."""
+        # Launch persistent context browser (load user profile data)
+        if self.browser is None:
+            # 第一次 init，启动浏览器
+            self.browser = self.playwright.chromium.launch_persistent_context(
+                headless=self.headless,
+                channel=self.channel,
+                user_data_dir=self.user_data_dir,
+                accept_downloads=False,
+                args=[
+                    "--disable-blink-features=AutomationControlled",
+                    "--start-maximized",
+                ],
+            )
+            self.context = self.browser  # persistent context直接就是context
+            # 无论是首次或已有browser，重新开新页面
         self.page = self.context.new_page()
+        # Inject anti-bot JavaScript to hide 'navigator.webdriver'
+        self.page.add_init_script(
+            """Object.defineProperty(navigator, 'webdriver', {get: () => 
+            undefined})"""
+        )
+        print("user_data_dir", self.user_data_dir)
+        print("cache", self.cache_dir)
+
 
     def clean_cache(self) -> None:
         r"""Delete the cache directory and its contents."""
@@ -908,8 +935,9 @@ class BaseBrowser:
         self._wait_for_load()
 
     def close(self):
-        self.browser.close()
-
+        # self.browser.close()
+        if self.page and not self.page.is_closed():
+            self.page.close()
     # ruff: noqa: E501
     def show_interactive_elements(self):
         r"""Show simple interactive elements on the current page."""
@@ -983,20 +1011,24 @@ class BrowserToolkit(BaseToolkit):
     """
 
     def __init__(
-        self,
-        headless: bool = False,
-        cache_dir: Optional[str] = None,
-        channel: Literal["chrome", "msedge", "chromium"] = "chromium",
-        history_window: int = 5,
-        web_agent_model: Optional[BaseModelBackend] = None,
-        planning_agent_model: Optional[BaseModelBackend] = None,
-        output_language: str = "en",
+            self,
+            headless: bool = False,
+            cache_dir: Optional[str] = None,
+            user_data_dir: Optional[str] = None,
+            channel: Literal["chrome", "msedge", "chromium"] = "chromium",
+            history_window: int = 5,
+            web_agent_model: Optional[BaseModelBackend] = None,
+            planning_agent_model: Optional[BaseModelBackend] = None,
+            output_language: str = "en",
     ):
         r"""Initialize the BrowserToolkit instance.
 
         Args:
             headless (bool): Whether to run the browser in headless mode.
             cache_dir (Union[str, None]): The directory to store cache files.
+            user_data_dir (Union[str, None]): The directory to store account
+            info.
+
             channel (Literal["chrome", "msedge", "chromium"]): The browser
                 channel to use. Must be one of "chrome", "msedge", or
                 "chromium".
@@ -1011,7 +1043,8 @@ class BrowserToolkit(BaseToolkit):
         """
 
         self.browser = BaseBrowser(
-            headless=headless, cache_dir=cache_dir, channel=channel
+            headless=headless, cache_dir=cache_dir,
+            user_data_dir=user_data_dir, channel=channel
         )
 
         self.history_window = history_window
@@ -1151,7 +1184,9 @@ current image or viewport, not the ID shown in the history.
 shows a part of the full page. If you cannot find the answer, try to use
 functions like `scroll_up()` and `scroll_down()` to check the full content of
 the webpage before doing anything else, because the answer or next key step
-may be hidden in the content below.
+may be hidden in the content below. If after scrolling down, the page 
+content does not change significantly, assume you have reached the bottom. 
+You should then consider other actions instead of repeatedly scrolling.
 - If the webpage needs human verification, you must avoid processing it.
 Please use `back()` to go back to the previous page, and try other ways.
 - If you have tried everything and still cannot resolve the issue, please stop
