@@ -488,7 +488,7 @@ class BaseBrowser:
         r"""Initialize and launch the browser."""
         # Launch persistent context browser (load user profile data)
         if self.browser is None:
-            # 第一次 init，启动浏览器
+            # only start browser at first init
             self.browser = self.playwright.chromium.launch_persistent_context(
                 headless=self.headless,
                 channel=self.channel,
@@ -499,8 +499,8 @@ class BaseBrowser:
                     "--start-maximized",
                 ],
             )
-            self.context = self.browser  # persistent context直接就是context
-            # 无论是首次或已有browser，重新开新页面
+            self.context = self.browser
+
         self.page = self.context.new_page()
         # Inject anti-bot JavaScript to hide 'navigator.webdriver'
         self.page.add_init_script(
