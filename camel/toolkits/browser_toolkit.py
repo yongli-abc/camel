@@ -493,7 +493,7 @@ class BaseBrowser:
                 headless=self.headless,
                 channel=self.channel,
                 user_data_dir=self.user_data_dir,
-                accept_downloads=False,
+                accept_downloads=True,
                 args=[
                     "--disable-blink-features=AutomationControlled",
                     "--start-maximized",
