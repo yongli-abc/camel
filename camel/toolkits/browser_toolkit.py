@@ -1184,9 +1184,7 @@ current image or viewport, not the ID shown in the history.
 shows a part of the full page. If you cannot find the answer, try to use
 functions like `scroll_up()` and `scroll_down()` to check the full content of
 the webpage before doing anything else, because the answer or next key step
-may be hidden in the content below. If after scrolling down, the page 
-content does not change significantly, assume you have reached the bottom. 
-You should then consider other actions instead of repeatedly scrolling.
+may be hidden in the content below.
 - If the webpage needs human verification, you must avoid processing it.
 Please use `back()` to go back to the previous page, and try other ways.
 - If you have tried everything and still cannot resolve the issue, please stop
