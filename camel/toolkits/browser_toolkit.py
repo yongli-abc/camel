@@ -935,7 +935,6 @@ class BaseBrowser:
         self._wait_for_load()
 
     def close(self):
-        # self.browser.close()
         if self.page and not self.page.is_closed():
             self.page.close()
     # ruff: noqa: E501
