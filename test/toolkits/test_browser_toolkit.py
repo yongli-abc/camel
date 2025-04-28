@@ -15,6 +15,7 @@ import io
 import os
 import shutil
 from unittest.mock import MagicMock, patch
+
 import pytest
 from PIL import Image
 
@@ -35,8 +36,10 @@ def base_browser_fixture():
         # Mock the browser context and page for launch_persistent_context
         mock_context = MagicMock()
         mock_page = MagicMock()
-
-        mock_sync_playwright.return_value.__enter__.return_value.chromium.launch_persistent_context.return_value = mock_context
+        # ruff: noqa: E501
+        (
+            mock_sync_playwright.return_value.__enter__().chromium.launch_persistent_context.return_value
+        ) = mock_context
         mock_context.new_page.return_value = mock_page
 
         browser = BaseBrowser(headless=True, cache_dir="test_cache")
@@ -54,12 +57,13 @@ def browser_toolkit_fixture():
         # Mock the browser context and page for launch_persistent_context
         mock_context = MagicMock()
         mock_page = MagicMock()
-
-        mock_sync_playwright.return_value.__enter__.return_value.chromium.launch_persistent_context.return_value = mock_context
+        # ruff: noqa: E501
+        (
+            mock_sync_playwright.return_value.__enter__().chromium.launch_persistent_context.return_value
+        ) = mock_context
         mock_context.new_page.return_value = mock_page
-
         toolkit = BrowserToolkit(headless=True, cache_dir="test_cache")
-        toolkit.browser.init()  # Must call init() to launch persistent context
+        toolkit.browser.init()
         yield toolkit
         # Clean up
         toolkit.browser.close()
@@ -79,27 +83,19 @@ def test_base_browser_initialization_order():
     with patch('playwright.sync_api.sync_playwright') as mock_sync_playwright:
         mock_playwright = MagicMock()
         mock_chromium = MagicMock()
-
         mock_playwright.chromium = mock_chromium
-        mock_sync_playwright.return_value.__enter__.return_value = mock_playwright
 
-        # 先 mock launch_persistent_context
+        mock_sync_playwright.return_value.__enter__.return_value = (
+            mock_playwright
+        )
         mock_chromium.launch_persistent_context = MagicMock()
-
         browser = BaseBrowser(headless=True)
-
-        # 确认 init 前，browser属性存在，但是 None
         assert browser.browser is None
-
-        # 现在模拟 init
         mock_context = MagicMock()
         mock_page = MagicMock()
         mock_chromium.launch_persistent_context.return_value = mock_context
         mock_context.new_page.return_value = mock_page
-
         browser.init()
-
-        # init后，browser应该不再是 None
         assert browser.browser is not None
         assert browser.page is not None
 
