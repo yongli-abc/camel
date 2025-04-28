@@ -1,8 +1,20 @@
+# ========= Copyright 2023-2024 @ CAMEL-AI.org. All Rights Reserved. =========
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ========= Copyright 2023-2024 @ CAMEL-AI.org. All Rights Reserved. =========
 import io
 import os
 import shutil
 from unittest.mock import MagicMock, patch
-
 import pytest
 from PIL import Image
 
@@ -65,20 +77,31 @@ def test_base_browser_init(base_browser_fixture):
 
 def test_base_browser_initialization_order():
     with patch('playwright.sync_api.sync_playwright') as mock_sync_playwright:
-        # Mock the browser context and page for launch_persistent_context
-        mock_context = MagicMock()
-        mock_page = MagicMock()
+        mock_playwright = MagicMock()
+        mock_chromium = MagicMock()
 
-        mock_sync_playwright.return_value.__enter__.return_value.chromium.launch_persistent_context.return_value = mock_context
-        mock_context.new_page.return_value = mock_page
+        mock_playwright.chromium = mock_chromium
+        mock_sync_playwright.return_value.__enter__.return_value = mock_playwright
+
+        # 先 mock launch_persistent_context
+        mock_chromium.launch_persistent_context = MagicMock()
 
         browser = BaseBrowser(headless=True)
-        assert not hasattr(browser, 'browser')
-        assert not hasattr(browser, 'page')
+
+        # 确认 init 前，browser属性存在，但是 None
+        assert browser.browser is None
+
+        # 现在模拟 init
+        mock_context = MagicMock()
+        mock_page = MagicMock()
+        mock_chromium.launch_persistent_context.return_value = mock_context
+        mock_context.new_page.return_value = mock_page
 
         browser.init()
-        assert hasattr(browser, 'browser')
-        assert hasattr(browser, 'page')
+
+        # init后，browser应该不再是 None
+        assert browser.browser is not None
+        assert browser.page is not None
 
 
 @pytest.mark.parametrize(
