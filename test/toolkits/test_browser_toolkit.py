@@ -1,19 +1,6 @@
-# ========= Copyright 2023-2024 @ CAMEL-AI.org. All Rights Reserved. =========
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# ========= Copyright 2023-2024 @ CAMEL-AI.org. All Rights Reserved. =========
-
 import io
 import os
+import shutil
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -32,22 +19,40 @@ TEST_URL = "https://example.com"
 
 @pytest.fixture(scope="function")
 def base_browser_fixture():
-    with patch('playwright.sync_api.sync_playwright'):
+    with patch('playwright.sync_api.sync_playwright') as mock_sync_playwright:
+        # Mock the browser context and page for launch_persistent_context
+        mock_context = MagicMock()
+        mock_page = MagicMock()
+
+        mock_sync_playwright.return_value.__enter__.return_value.chromium.launch_persistent_context.return_value = mock_context
+        mock_context.new_page.return_value = mock_page
+
         browser = BaseBrowser(headless=True, cache_dir="test_cache")
+        browser.init()  # Must call init() to launch persistent context
         yield browser
-        # Cleanup
+        # Clean up
+        browser.close()
         if os.path.exists("test_cache"):
-            os.rmdir("test_cache")
+            shutil.rmtree("test_cache")
 
 
 @pytest.fixture(scope="function")
 def browser_toolkit_fixture():
-    with patch('playwright.sync_api.sync_playwright'):
+    with patch('playwright.sync_api.sync_playwright') as mock_sync_playwright:
+        # Mock the browser context and page for launch_persistent_context
+        mock_context = MagicMock()
+        mock_page = MagicMock()
+
+        mock_sync_playwright.return_value.__enter__.return_value.chromium.launch_persistent_context.return_value = mock_context
+        mock_context.new_page.return_value = mock_page
+
         toolkit = BrowserToolkit(headless=True, cache_dir="test_cache")
+        toolkit.browser.init()  # Must call init() to launch persistent context
         yield toolkit
-        # Cleanup
+        # Clean up
+        toolkit.browser.close()
         if os.path.exists("test_cache"):
-            os.rmdir("test_cache")
+            shutil.rmtree("test_cache")
 
 
 def test_base_browser_init(base_browser_fixture):
@@ -59,14 +64,21 @@ def test_base_browser_init(base_browser_fixture):
 
 
 def test_base_browser_initialization_order():
-    with patch('playwright.sync_api.sync_playwright'):
-        browser = BaseBrowser(headless=True)  # __init__ called
-        assert not hasattr(browser, 'browser')  # browser not launched yet
-        assert not hasattr(browser, 'page')  # page not created yet
+    with patch('playwright.sync_api.sync_playwright') as mock_sync_playwright:
+        # Mock the browser context and page for launch_persistent_context
+        mock_context = MagicMock()
+        mock_page = MagicMock()
 
-        browser.init()  # explicit init() call
-        assert hasattr(browser, 'browser')  # browser launched
-        assert hasattr(browser, 'page')  # page created
+        mock_sync_playwright.return_value.__enter__.return_value.chromium.launch_persistent_context.return_value = mock_context
+        mock_context.new_page.return_value = mock_page
+
+        browser = BaseBrowser(headless=True)
+        assert not hasattr(browser, 'browser')
+        assert not hasattr(browser, 'page')
+
+        browser.init()
+        assert hasattr(browser, 'browser')
+        assert hasattr(browser, 'page')
 
 
 @pytest.mark.parametrize(
@@ -85,9 +97,7 @@ def test_browser_channel_selection(channel):
 
 def test_browser_visit_page(base_browser_fixture):
     browser = base_browser_fixture
-    browser.init()
 
-    # Mock the page methods
     browser.page.goto = MagicMock()
     browser.page.wait_for_load_state = MagicMock()
 
@@ -99,9 +109,7 @@ def test_browser_visit_page(base_browser_fixture):
 
 def test_browser_get_screenshot(base_browser_fixture):
     browser = base_browser_fixture
-    browser.init()
 
-    # Create a mock image for testing
     mock_image = Image.new('RGB', (100, 100))
     img_byte_arr = io.BytesIO()
     mock_image.save(img_byte_arr, format='PNG')
@@ -117,7 +125,6 @@ def test_browser_get_screenshot(base_browser_fixture):
 def test_browser_toolkit_browse_url(browser_toolkit_fixture):
     toolkit = browser_toolkit_fixture
 
-    # Mock necessary components
     toolkit.browser.visit_page = MagicMock()
     toolkit._observe = MagicMock(return_value=("obs", "reason", "stop()"))
     toolkit._get_final_answer = MagicMock(return_value="Task completed")
@@ -133,7 +140,6 @@ def test_browser_toolkit_browse_url(browser_toolkit_fixture):
 def test_browser_clean_cache(base_browser_fixture):
     browser = base_browser_fixture
 
-    # Create a test file in cache directory
     os.makedirs(browser.cache_dir, exist_ok=True)
     test_file = os.path.join(browser.cache_dir, "test.txt")
     with open(test_file, "w") as f:
@@ -145,7 +151,6 @@ def test_browser_clean_cache(base_browser_fixture):
 
 def test_browser_click_blank_area(base_browser_fixture):
     browser = base_browser_fixture
-    browser.init()
 
     browser.page.mouse.click = MagicMock()
     browser.page.wait_for_load_state = MagicMock()
@@ -158,7 +163,6 @@ def test_browser_click_blank_area(base_browser_fixture):
 
 def test_browser_get_url(base_browser_fixture):
     browser = base_browser_fixture
-    browser.init()
 
     browser.page.url = TEST_URL
 
@@ -167,7 +171,6 @@ def test_browser_get_url(base_browser_fixture):
 
 def test_browser_back_navigation(base_browser_fixture):
     browser = base_browser_fixture
-    browser.init()
 
     browser.page.go_back = MagicMock()
     browser.page.wait_for_load_state = MagicMock()
