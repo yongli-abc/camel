@@ -41,7 +41,7 @@ from PIL import Image, ImageDraw, ImageFont
 if TYPE_CHECKING:
     from camel.agents import ChatAgent
 
-from playwright.sync_api import BrowserContext, Page, sync_playwright
+from playwright.sync_api import BrowserContext, sync_playwright
 
 from camel.logger import get_logger
 from camel.messages import BaseMessage
@@ -445,8 +445,8 @@ class BaseBrowser:
             user_data_dir (Optional[str]): Directory to store user data (profile info).
             channel (Literal["chrome", "msedge", "chromium"]): Browser channel to use.
         """
-        self.page: Optional[Page] = None
-        self.context: Optional[BrowserContext] = None
+        # self.page: Optional[Page] = None
+        # self.context: Optional[BrowserContext] = None
         self.browser: Optional[BrowserContext] = None
 
         self.history: list = []
@@ -495,17 +495,17 @@ class BaseBrowser:
             )
             self.context = self.browser
 
-        assert self.context is not None
-        self.page = self.context.new_page()
+            assert self.context is not None
+            self.page = self.context.new_page()
 
-        # Inject anti-bot JavaScript to hide 'navigator.webdriver'
-        assert self.page is not None
-        self.page.add_init_script(
-            """Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"""
-        )
+            # Inject anti-bot JavaScript to hide 'navigator.webdriver'
+            assert self.page is not None
+            self.page.add_init_script(
+                """Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"""
+            )
 
-        logger.info("User data directory location: %s", self.user_data_dir)
-        logger.info("Cache directory location: %s", self.cache_dir)
+            logger.info("User data directory location: %s", self.user_data_dir)
+            logger.info("Cache directory location: %s", self.cache_dir)
 
     def clean_cache(self) -> None:
         r"""Delete the cache directory and its contents."""
